@@ -39,7 +39,7 @@ func GenerateHandler(c *fiber.Ctx) error {
 	authSub := c.Locals("auth_sub")
 	userID := authSub.(string)
 	// ensure user exists
-	_, err = findOrCreateUser(userID, c)
+	_, err = findOrCreateUser(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_upsert_failed", "detail": err.Error()})
 	}
@@ -58,7 +58,7 @@ func GenerateHandler(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(fiber.Map{"id": id, "plan": tasks})
 }
 
-func findOrCreateUser(sub string, c *fiber.Ctx) (string, error) {
+func findOrCreateUser(sub string) (string, error) {
 	var id string
 	err := db.Pool.QueryRow(context.Background(), "SELECT id FROM users WHERE auth0_id=$1", sub).Scan(&id)
 	if err == nil {
