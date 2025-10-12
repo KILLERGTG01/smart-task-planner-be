@@ -17,18 +17,15 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// Initialize logger
 	if err := logger.Init(cfg.Env); err != nil {
 		panic("failed to initialize logger: " + err.Error())
 	}
 	defer logger.Sync()
 
-	// connect DB and run migrations
-	db.ConnectAndMigrate(cfg.DatabaseURL)
+	db.Connect(cfg.DatabaseURL)
 
 	app, authMiddleware := server.NewApp(cfg)
 
-	// run server
 	go func() {
 		addr := ":" + cfg.Port
 		zap.L().Info("starting server", zap.String("address", addr))
@@ -37,7 +34,6 @@ func main() {
 		}
 	}()
 
-	// graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -46,7 +42,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Cleanup auth middleware
 	authMiddleware.Cleanup()
 
 	if err := app.ShutdownWithContext(ctx); err != nil {
