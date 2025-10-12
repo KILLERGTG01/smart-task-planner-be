@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/helmet/v2"
-	"github.com/rs/zerolog/log"
+	"go.uber.org/zap"
 
 	"github.com/KILLERGTG01/smart-task-planner-be/internal/config"
 	"github.com/KILLERGTG01/smart-task-planner-be/internal/middleware"
@@ -65,7 +65,7 @@ func NewApp(cfg *config.Config) (*fiber.App, *middleware.AuthMiddleware) {
 	// Setup routes (rate limiting handled by nginx)
 	routes.SetupRoutes(app, authMiddleware)
 
-	log.Info().Msg("routes registered successfully")
+	zap.L().Info("routes registered successfully")
 	return app, authMiddleware
 }
 
@@ -79,13 +79,13 @@ func customErrorHandler(c *fiber.Ctx, err error) error {
 	}
 
 	// Log error for debugging
-	log.Error().
-		Err(err).
-		Int("status", code).
-		Str("method", c.Method()).
-		Str("path", c.Path()).
-		Str("ip", c.IP()).
-		Msg("request error")
+	zap.L().Error("request error",
+		zap.Error(err),
+		zap.Int("status", code),
+		zap.String("method", c.Method()),
+		zap.String("path", c.Path()),
+		zap.String("ip", c.IP()),
+	)
 
 	return c.Status(code).JSON(fiber.Map{
 		"error": message,

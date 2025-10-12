@@ -1,10 +1,10 @@
 package config
 
 import (
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -35,7 +35,8 @@ func Load() *Config {
 	}
 
 	if cfg.DatabaseURL == "" || cfg.GeminiKey == "" {
-		log.Fatal("missing required environment variables")
+		logger, _ := zap.NewProduction()
+		logger.Fatal("missing required environment variables")
 	}
 
 	return cfg

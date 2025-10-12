@@ -10,7 +10,7 @@ import (
 	"github.com/MicahParks/keyfunc"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/rs/zerolog/log"
+	"go.uber.org/zap"
 
 	"github.com/KILLERGTG01/smart-task-planner-be/internal/config"
 )
@@ -50,18 +50,18 @@ func (a *AuthMiddleware) ensureJWKS(ctx context.Context) error {
 		RefreshInterval: time.Hour,
 		RefreshTimeout:  10 * time.Second,
 		RefreshErrorHandler: func(err error) {
-			log.Error().Err(err).Msg("JWKS refresh failed")
+			zap.L().Error("JWKS refresh failed", zap.Error(err))
 		},
 	}
 
 	k, err := keyfunc.Get(jwksURL, options)
 	if err != nil {
-		log.Error().Err(err).Str("jwks_url", jwksURL).Msg("Failed to initialize JWKS")
+		zap.L().Error("Failed to initialize JWKS", zap.Error(err), zap.String("jwks_url", jwksURL))
 		return err
 	}
 
 	a.jwks = k
-	log.Info().Msg("JWKS initialized successfully")
+	zap.L().Info("JWKS initialized successfully")
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (a *AuthMiddleware) AuthRequired() fiber.Handler {
 		defer cancel()
 
 		if err := a.ensureJWKS(ctx); err != nil {
-			log.Error().Err(err).Msg("JWKS initialization failed")
+			zap.L().Error("JWKS initialization failed", zap.Error(err))
 			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 				"error": "authentication_service_unavailable",
 			})
@@ -115,7 +115,7 @@ func (a *AuthMiddleware) AuthRequired() fiber.Handler {
 		token, err := jwt.Parse(tokenStr, jwks.Keyfunc)
 
 		if err != nil || !token.Valid {
-			log.Warn().Err(err).Msg("Invalid token provided")
+			zap.L().Warn("Invalid token provided", zap.Error(err))
 			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 				"error": "unauthorized",
 			})
@@ -158,7 +158,6 @@ func (a *AuthMiddleware) AuthRequired() fiber.Handler {
 			}
 		}
 
-		// Validate token expiration explicitly
 		if exp, ok := claims["exp"].(float64); ok {
 			if time.Now().Unix() > int64(exp) {
 				return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
@@ -171,7 +170,6 @@ func (a *AuthMiddleware) AuthRequired() fiber.Handler {
 			})
 		}
 
-		// Set user context
 		if sub, ok := claims["sub"].(string); ok && sub != "" {
 			c.Locals("auth_sub", sub)
 		} else {

@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
 )
 
 var Pool *pgxpool.Pool
@@ -19,48 +19,48 @@ var Pool *pgxpool.Pool
 func ConnectAndMigrate(databaseURL string) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		log.Fatalf("parse db config: %v", err)
+		zap.L().Fatal("parse db config", zap.Error(err))
 	}
 	db := stdlib.OpenDB(*config.ConnConfig)
 	defer db.Close()
 
 	driver, err := pgx.WithInstance(db, &pgx.Config{})
 	if err != nil {
-		log.Fatalf("migration driver error: %v", err)
+		zap.L().Fatal("migration driver error", zap.Error(err))
 	}
 
 	migrationPath, err := filepath.Abs("migrations")
 	if err != nil {
-		log.Fatalf("migration path error: %v", err)
+		zap.L().Fatal("migration path error", zap.Error(err))
 	}
 
 	if _, err := os.Stat(migrationPath); os.IsNotExist(err) {
-		log.Printf("migrations directory not found at %s, skipping migrations", migrationPath)
+		zap.L().Info("migrations directory not found, skipping migrations", zap.String("path", migrationPath))
 	} else {
 		// Create file source
 		fileSource, err := (&file.File{}).Open("file://" + migrationPath)
 		if err != nil {
-			log.Fatalf("migration source error: %v", err)
+			zap.L().Fatal("migration source error", zap.Error(err))
 		}
 
 		// Create migrate instance
 		m, err := migrate.NewWithInstance("file", fileSource, "pgx", driver)
 		if err != nil {
-			log.Fatalf("migration init error: %v", err)
+			zap.L().Fatal("migration init error", zap.Error(err))
 		}
 
 		// Run migrations
 		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("migration up error: %v", err)
+			zap.L().Fatal("migration up error", zap.Error(err))
 		} else {
-			log.Println("migrations applied successfully")
+			zap.L().Info("migrations applied successfully")
 		}
 	}
 
 	// Now create the connection pool
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		log.Fatalf("parse db config: %v", err)
+		zap.L().Fatal("parse db config", zap.Error(err))
 	}
 	cfg.MaxConns = 20
 	cfg.MinConns = 1
@@ -68,18 +68,17 @@ func ConnectAndMigrate(databaseURL string) {
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
-		log.Fatalf("db connection failed: %v", err)
+		zap.L().Fatal("db connection failed", zap.Error(err))
 	}
 
-	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("db ping failed: %v", err)
+		zap.L().Fatal("db ping failed", zap.Error(err))
 	}
 
 	Pool = pool
-	log.Println("database connected successfully")
+	zap.L().Info("database connected successfully")
 }
 
 func Close() {
