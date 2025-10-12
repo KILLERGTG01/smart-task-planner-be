@@ -38,7 +38,6 @@ func (a *AuthMiddleware) ensureJWKS(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Double-check after acquiring write lock
 	if a.jwks != nil {
 		return nil
 	}
