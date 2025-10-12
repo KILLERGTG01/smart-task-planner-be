@@ -21,30 +21,20 @@ type Config struct {
 func Load() *Config {
 	_ = godotenv.Load()
 
-	return &Config{
-		Port:        getEnv("APP_PORT", "8080"),
-		DatabaseURL: mustGetEnv("DATABASE_URL"),
-		Auth0Domain: mustGetEnv("AUTH0_DOMAIN"),
-		Auth0Aud:    mustGetEnv("AUTH0_AUDIENCE"),
-		Auth0Issuer: mustGetEnv("AUTH0_ISSUER"),
-		GeminiKey:   mustGetEnv("GEMINI_API_KEY"),
-		GeminiURL:   mustGetEnv("GEMINI_BASE_URL"),
-		Env:         getEnv("APP_ENV", "development"),
+	cfg := &Config{
+		Port:        os.Getenv("APP_PORT"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+		Auth0Domain: os.Getenv("AUTH0_DOMAIN"),
+		Auth0Aud:    os.Getenv("AUTH0_AUDIENCE"),
+		Auth0Issuer: os.Getenv("AUTH0_ISSUER"),
+		GeminiKey:   os.Getenv("GEMINI_API_KEY"),
+		GeminiURL:   os.Getenv("GEMINI_BASE_URL"),
+		Env:         os.Getenv("APP_ENV"),
 	}
-}
 
-func getEnv(key, def string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		return def
+	if cfg.DatabaseURL == "" || cfg.GeminiKey == "" {
+		log.Fatal("missing required environment variables")
 	}
-	return val
-}
 
-func mustGetEnv(key string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		log.Fatalf("❌ required environment variable %s not set", key)
-	}
-	return val
+	return cfg
 }
