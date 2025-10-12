@@ -128,16 +128,13 @@ func (a *AuthMiddleware) AuthRequired() fiber.Handler {
 			})
 		}
 
-		// Validate issuer
 		if iss, ok := claims["iss"].(string); !ok || iss != a.config.Auth0Issuer {
 			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 				"error": "unauthorized",
 			})
 		}
 
-		// Validate audience
 		if aud, ok := claims["aud"].(string); !ok || aud != a.config.Auth0Aud {
-			// Also check if audience is an array
 			if audArray, ok := claims["aud"].([]interface{}); ok {
 				found := false
 				for _, audItem := range audArray {

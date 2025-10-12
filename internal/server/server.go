@@ -17,21 +17,19 @@ import (
 )
 
 func NewApp(cfg *config.Config) (*fiber.App, *middleware.AuthMiddleware) {
-	// Create auth middleware instance
 	authMiddleware := middleware.NewAuthMiddleware(cfg)
 
 	app := fiber.New(fiber.Config{
 		ReadTimeout:           30 * time.Second,
 		WriteTimeout:          30 * time.Second,
 		IdleTimeout:           120 * time.Second,
-		BodyLimit:             4 * 1024 * 1024, // 4MB
+		BodyLimit:             4 * 1024 * 1024,
 		ServerHeader:          "SmartTracker",
 		AppName:               "SmartTracker API v1.0",
 		ErrorHandler:          customErrorHandler,
 		DisableStartupMessage: cfg.Env == "production",
 	})
 
-	// Security middleware
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: cfg.Env == "development",
 	}))
@@ -44,16 +42,14 @@ func NewApp(cfg *config.Config) (*fiber.App, *middleware.AuthMiddleware) {
 		ReferrerPolicy:     "strict-origin-when-cross-origin",
 	}))
 
-	// CORS configuration - origins from environment
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With",
 		AllowCredentials: false,
-		MaxAge:           86400, // 24 hours
+		MaxAge:           86400,
 	}))
 
-	// Request ID and logging
 	app.Use(requestid.New())
 
 	if cfg.Env != "production" {
@@ -62,7 +58,6 @@ func NewApp(cfg *config.Config) (*fiber.App, *middleware.AuthMiddleware) {
 		}))
 	}
 
-	// Setup routes (rate limiting handled by nginx)
 	routes.SetupRoutes(app, authMiddleware)
 
 	zap.L().Info("routes registered successfully")
@@ -78,7 +73,6 @@ func customErrorHandler(c *fiber.Ctx, err error) error {
 		message = e.Message
 	}
 
-	// Log error for debugging
 	zap.L().Error("request error",
 		zap.Error(err),
 		zap.Int("status", code),

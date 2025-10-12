@@ -27,7 +27,6 @@ func GenerateHandler(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "goal_required"})
 	}
 
-	// run generation
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	tasks, err := services.GeneratePlan(ctx, req.Goal)
@@ -35,16 +34,12 @@ func GenerateHandler(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "generation_failed", "detail": err.Error()})
 	}
 
-	// upsert user based on auth_sub
 	authSub := c.Locals("auth_sub")
 	userID := authSub.(string)
-	// ensure user exists
 	_, err = findOrCreateUser(userID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_upsert_failed", "detail": err.Error()})
 	}
-
-	// save plan
 	id := uuid.NewString()
 	planJson, _ := json.Marshal(tasks)
 	_, err = db.Pool.Exec(context.Background(),
@@ -64,7 +59,6 @@ func findOrCreateUser(sub string) (string, error) {
 	if err == nil {
 		return id, nil
 	}
-	// create
 	id = sub
 	_, err = db.Pool.Exec(context.Background(), "INSERT INTO users (id, auth0_id, created_at) VALUES ($1,$2,now())", id, sub)
 	if err != nil {

@@ -28,7 +28,6 @@ func ValidatePlan(plan *db.Plan) error {
 	return nil
 }
 
-// formatValidationError formats validation errors into a more readable format
 func formatValidationError(err error) error {
 	var errorMessages []string
 
@@ -41,7 +40,6 @@ func formatValidationError(err error) error {
 	return fmt.Errorf("validation failed: %s", strings.Join(errorMessages, ", "))
 }
 
-// formatFieldError formats individual field validation errors
 func formatFieldError(fieldError validator.FieldError) string {
 	field := fieldError.Field()
 	tag := fieldError.Tag()
