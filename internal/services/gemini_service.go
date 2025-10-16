@@ -32,7 +32,7 @@ func GeneratePlan(ctx context.Context, goal string) ([]Task, error) {
 		"max_output_tokens": 800,
 	}
 	body, _ := json.Marshal(payload)
-	url := base + "/v1/models/gemini-2.5-pro:generateText?key=" + key
+	url := base + "/v1/models/gemini-2.5-flash-lite:generateText?key=" + key
 
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
