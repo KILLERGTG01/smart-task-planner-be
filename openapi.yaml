@@ -1,94 +1,336 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Smart Task Planner API
-  description: AI-powered task planning API using Google Gemini
+  description: |
+    🎯 **AI-powered task planning API using Google Gemini**
+
+    Generate intelligent task plans for any goal using advanced AI. 
+    Supports both anonymous and authenticated usage with plan persistence.
+
+    ## Features
+    - 🤖 AI-powered plan generation with Google Gemini 2.5 Flash Lite
+    - 🔓 Anonymous plan generation (no signup required)
+    - 🔐 Authenticated plan saving and history
+    - 📡 Real-time streaming plan generation
+    - 🔑 OAuth authentication (Google & GitHub)
+
   version: 1.0.0
   contact:
     name: Anurag Goel
     url: https://github.com/KILLERGTG01
+    email: anurag@example.com
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 
 servers:
   - url: https://api.anurag-goel.com
-    description: Production server
+    description: 🚀 Production server
   - url: http://localhost:8080
-    description: Development server
+    description: 🛠️ Development server
+
+tags:
+  - name: Health
+    description: System health and status
+  - name: Plans
+    description: Task plan generation and management
+  - name: Authentication
+    description: OAuth authentication and user management
 
 paths:
   /health:
     get:
+      tags: [Health]
       summary: Health check
-      description: Check if the API is running
+      description: Check if the API is running and healthy
+      operationId: healthCheck
       responses:
-        '200':
-          description: API is healthy
+        "200":
+          description: API is healthy and operational
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  timestamp:
-                    type: integer
-                    example: 1703123456
-                  service:
-                    type: string
-                    example: smart-task-planner-api
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                timestamp: 1703123456
+                service: smart-task-planner-api
 
   /api/generate:
     post:
+      tags: [Plans]
       summary: Generate task plan
-      description: Generate an AI-powered task plan for a given goal
+      description: |
+        Generate an AI-powered task plan for any goal. 
+
+        **No authentication required** - works for anonymous users.
+        **With authentication** - plans are automatically saved to user account.
+      operationId: generatePlan
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - goal
-              properties:
-                goal:
-                  type: string
-                  description: The goal to create a plan for
-                  example: Learn React in 30 days
-                title:
-                  type: string
-                  description: Optional title for the plan
-                  example: React Learning Journey
+              $ref: "#/components/schemas/GeneratePlanRequest"
+            examples:
+              learning:
+                summary: Learning Goal
+                value:
+                  goal: Learn React in 30 days
+                  title: React Learning Journey
+              business:
+                summary: Business Goal
+                value:
+                  goal: Launch a SaaS product
+                  title: SaaS Launch Plan
+              fitness:
+                summary: Fitness Goal
+                value:
+                  goal: Run a marathon in 6 months
+                  title: Marathon Training Plan
       responses:
-        '200':
+        "200":
           description: Plan generated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: Plan ID (only for authenticated users)
-                    example: 550e8400-e29b-41d4-a716-446655440000
-                  plan:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Task'
-                  saved:
-                    type: boolean
-                    description: Whether the plan was saved
-                    example: false
-                  message:
-                    type: string
-                    description: Status message
-                    example: Plan generated but not saved. Login to save your plans.
+                $ref: "#/components/schemas/PlanResponse"
+              examples:
+                anonymous:
+                  summary: Anonymous User Response
+                  value:
+                    plan:
+                      - task: Set up React development environment
+                        duration_days: 1
+                        depends_on: []
+                      - task: Learn JSX syntax and components
+                        duration_days: 3
+                        depends_on: [Set up React development environment]
+                    saved: false
+                    message: Plan generated but not saved. Login to save your plans.
+                authenticated:
+                  summary: Authenticated User Response
+                  value:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    plan:
+                      - task: Set up React development environment
+                        duration_days: 1
+                        depends_on: []
+                    saved: true
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - {}
+        - BearerAuth: []
+
+  /api/generate/stream:
+    post:
+      tags: [Plans]
+      summary: Generate task plan (streaming)
+      description: |
+        Generate a task plan with real-time streaming updates using Server-Sent Events.
+
+        **Events emitted:**
+        - `status` - Generation status updates
+        - `progress` - Progress messages
+        - `plan` - The generated plan
+        - `saved` - Save confirmation (authenticated users)
+        - `complete` - Generation completed
+        - `error` - Error occurred
+      operationId: generatePlanStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePlanRequest"
+      responses:
+        "200":
+          description: Streaming plan generation
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream
+              example: |
+                event: status
+                data: {"message": "Starting plan generation..."}
+
+                event: progress
+                data: {"message": "Plan generated successfully!"}
+
+                event: plan
+                data: {"plan": [{"task": "Learn basics", "duration_days": 3, "depends_on": []}]}
+
+                event: complete
+                data: {"saved": false}
+      security:
+        - {}
+        - BearerAuth: []
+
+  /api/history:
+    get:
+      tags: [Plans]
+      summary: Get plan history
+      description: Retrieve the authenticated user's plan generation history (last 100 plans)
+      operationId: getPlanHistory
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Plan history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanHistoryResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    get:
+      tags: [Authentication]
+      summary: Get OAuth login URL
+      description: Get the OAuth authorization URL for Google or GitHub login
+      operationId: getLoginUrl
+      parameters:
+        - name: provider
+          in: query
+          description: OAuth provider
+          schema:
+            type: string
+            enum: [google, github]
+            default: google
+      responses:
+        "200":
+          description: Login URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/callback:
+    get:
+      tags: [Authentication]
+      summary: OAuth callback handler
+      description: Handles OAuth callback from Auth0 and redirects to frontend
+      operationId: authCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from OAuth provider
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          description: State parameter for security
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to frontend with token or error
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh JWT token
+      description: Refresh an expired JWT token using a refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    get:
+      tags: [Authentication]
+      summary: Get logout URL
+      description: Get the Auth0 logout URL
+      operationId: getLogoutUrl
+      responses:
+        "200":
+          description: Logout URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+
+  /auth/profile:
+    get:
+      tags: [Authentication]
+      summary: Get user profile
+      description: Get the authenticated user's profile information
+      operationId: getUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from OAuth flow
+
   schemas:
     Task:
       type: object
+      required: [task, duration_days, depends_on]
       properties:
         task:
           type: string
@@ -96,6 +338,7 @@ components:
           example: Set up React development environment
         duration_days:
           type: integer
+          minimum: 1
           description: Estimated duration in days
           example: 2
         depends_on:
@@ -104,3 +347,180 @@ components:
             type: string
           description: Prerequisites for this task
           example: []
+
+    GeneratePlanRequest:
+      type: object
+      required: [goal]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The goal to create a plan for
+          example: Learn React in 30 days
+        title:
+          type: string
+          maxLength: 200
+          description: Optional title for the plan
+          example: React Learning Journey
+
+    PlanResponse:
+      type: object
+      required: [plan, saved]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Plan ID (only for authenticated users)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        plan:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+          description: Generated task plan
+        saved:
+          type: boolean
+          description: Whether the plan was saved to user account
+          example: false
+        message:
+          type: string
+          description: Status message
+          example: Plan generated but not saved. Login to save your plans.
+
+    PlanHistoryResponse:
+      type: object
+      required: [plans]
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedPlan"
+
+    SavedPlan:
+      type: object
+      required: [id, title, goal, plan, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        title:
+          type: string
+          example: React Learning Journey
+        goal:
+          type: string
+          example: Learn React in 30 days
+        plan:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    HealthResponse:
+      type: object
+      required: [status, timestamp, service]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: integer
+          description: Unix timestamp
+          example: 1703123456
+        service:
+          type: string
+          example: smart-task-planner-api
+
+    LoginResponse:
+      type: object
+      required: [auth_url, state]
+      properties:
+        auth_url:
+          type: string
+          format: uri
+          description: OAuth authorization URL
+          example: https://your-domain.auth0.com/authorize?response_type=code&client_id=...
+        state:
+          type: string
+          description: State parameter for security
+          example: random-state-string
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+          example: 86400
+
+    LogoutResponse:
+      type: object
+      required: [logout_url]
+      properties:
+        logout_url:
+          type: string
+          format: uri
+          description: Auth0 logout URL
+          example: https://your-domain.auth0.com/v2/logout?client_id=...
+
+    UserProfileResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, email, name, created_at]
+      properties:
+        id:
+          type: string
+          description: User ID from Auth0
+          example: google-oauth2|123456789
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: John Doe
+        created_at:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: invalid_request
+        detail:
+          type: string
+          description: Detailed error message
+          example: The request body is invalid
