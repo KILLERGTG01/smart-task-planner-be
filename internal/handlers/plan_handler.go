@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -34,23 +36,34 @@ func GenerateHandler(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "generation_failed", "detail": err.Error()})
 	}
 
+	response := fiber.Map{"plan": tasks}
+
 	authSub := c.Locals("auth_sub")
-	userID := authSub.(string)
-	_, err = findOrCreateUser(userID)
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_upsert_failed", "detail": err.Error()})
-	}
-	id := uuid.NewString()
-	planJson, _ := json.Marshal(tasks)
-	_, err = db.Pool.Exec(context.Background(),
-		"INSERT INTO plans (id, user_id, title, goal, plan_json, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,now(),now())",
-		id, userID, req.Title, req.Goal, planJson,
-	)
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "save_failed", "detail": err.Error()})
+	if authSub != nil {
+		userID := authSub.(string)
+		_, err = findOrCreateUser(userID)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_upsert_failed", "detail": err.Error()})
+		}
+
+		id := uuid.NewString()
+		planJson, _ := json.Marshal(tasks)
+		_, err = db.Pool.Exec(context.Background(),
+			"INSERT INTO plans (id, user_id, title, goal, plan_json, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,now(),now())",
+			id, userID, req.Title, req.Goal, planJson,
+		)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "save_failed", "detail": err.Error()})
+		}
+
+		response["id"] = id
+		response["saved"] = true
+	} else {
+		response["saved"] = false
+		response["message"] = "Plan generated but not saved. Login to save your plans."
 	}
 
-	return c.Status(http.StatusOK).JSON(fiber.Map{"id": id, "plan": tasks})
+	return c.Status(http.StatusOK).JSON(response)
 }
 
 func findOrCreateUser(sub string) (string, error) {
@@ -97,4 +110,74 @@ func HistoryHandler(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(fiber.Map{"plans": res})
+}
+
+func GenerateStreamHandler(c *fiber.Ctx) error {
+	var req generateReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid_body"})
+	}
+	if req.Goal == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "goal_required"})
+	}
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Access-Control-Allow-Headers", "Cache-Control")
+
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		writeSSE := func(event, data string) {
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
+			w.Flush()
+		}
+
+		writeSSE("status", `{"message": "Starting plan generation..."}`)
+
+		tasks, err := services.GeneratePlan(ctx, req.Goal)
+		if err != nil {
+			writeSSE("error", fmt.Sprintf(`{"error": "generation_failed", "detail": "%s"}`, err.Error()))
+			return
+		}
+
+		writeSSE("progress", `{"message": "Plan generated successfully!"}`)
+
+		planData, _ := json.Marshal(fiber.Map{"plan": tasks})
+		writeSSE("plan", string(planData))
+
+		authSub := c.Locals("auth_sub")
+		if authSub != nil {
+			userID := authSub.(string)
+			_, err = findOrCreateUser(userID)
+			if err != nil {
+				writeSSE("warning", fmt.Sprintf(`{"message": "Plan generated but not saved: %s"}`, err.Error()))
+				writeSSE("complete", `{"saved": false}`)
+				return
+			}
+
+			id := uuid.NewString()
+			planJson, _ := json.Marshal(tasks)
+			_, err = db.Pool.Exec(context.Background(),
+				"INSERT INTO plans (id, user_id, title, goal, plan_json, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,now(),now())",
+				id, userID, req.Title, req.Goal, planJson,
+			)
+			if err != nil {
+				writeSSE("warning", fmt.Sprintf(`{"message": "Plan generated but not saved: %s"}`, err.Error()))
+				writeSSE("complete", `{"saved": false}`)
+				return
+			}
+
+			writeSSE("saved", fmt.Sprintf(`{"id": "%s", "message": "Plan saved successfully!"}`, id))
+			writeSSE("complete", `{"saved": true}`)
+		} else {
+			writeSSE("info", `{"message": "Plan generated but not saved. Login to save your plans."}`)
+			writeSSE("complete", `{"saved": false}`)
+		}
+	})
+
+	return nil
 }
