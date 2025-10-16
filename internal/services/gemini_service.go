@@ -26,7 +26,6 @@ func GeneratePlan(ctx context.Context, goal string) ([]Task, error) {
 		return createFallbackPlan(goal), nil
 	}
 
-	// Use Gemini 2.0 Flash Experimental model with v1beta API
 	payload := map[string]any{
 		"contents": []map[string]any{
 			{
