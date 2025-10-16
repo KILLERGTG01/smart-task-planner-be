@@ -7,6 +7,8 @@ import (
 
 func SetupRoutes(app *fiber.App, authMiddleware *middleware.AuthMiddleware) {
 	SetupHealthRoutes(app)
+	SetupAuthRoutes(app, authMiddleware)
+
 	api := app.Group("/api", authMiddleware.AuthRequired())
 	SetupPlanRoutes(api)
 }
