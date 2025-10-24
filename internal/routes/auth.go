@@ -11,6 +11,7 @@ func SetupAuthRoutes(app *fiber.App, authMiddleware *middleware.AuthMiddleware) 
 
 	auth.Get("/login", handlers.LoginHandler)
 	auth.Get("/callback", handlers.CallbackHandler)
+	auth.Post("/exchange", handlers.ExchangeTokenHandler)
 	auth.Post("/refresh", handlers.RefreshTokenHandler)
 	auth.Get("/logout", handlers.LogoutHandler)
 

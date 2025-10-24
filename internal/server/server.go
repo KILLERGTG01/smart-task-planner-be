@@ -51,6 +51,7 @@ func NewApp(cfg *config.Config) (*fiber.App, *middleware.AuthMiddleware) {
 	}))
 
 	app.Use(requestid.New())
+	app.Use(middleware.ConfigMiddleware(cfg))
 
 	if cfg.Env != "production" {
 		app.Use(logger.New(logger.Config{

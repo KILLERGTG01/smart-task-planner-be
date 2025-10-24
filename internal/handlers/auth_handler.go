@@ -113,6 +113,52 @@ func CallbackHandler(c *fiber.Ctx) error {
 	return c.Redirect(successURL)
 }
 
+func ExchangeTokenHandler(c *fiber.Ctx) error {
+	type TokenRequest struct {
+		Code string `json:"code" validate:"required"`
+	}
+
+	var req TokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid_request_body"})
+	}
+
+	if req.Code == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "code_required"})
+	}
+
+	cfg := c.Locals("config").(*config.Config)
+
+	tokenResp, err := exchangeCodeForTokenFrontend(cfg, req.Code)
+	if err != nil {
+		zap.L().Error("Failed to exchange code for token", zap.Error(err))
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "token_exchange_failed", "detail": err.Error()})
+	}
+
+	userInfo, err := getUserInfoFromAuth0(cfg, tokenResp.AccessToken)
+	if err != nil {
+		zap.L().Error("Failed to get user info from Auth0", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_info_failed"})
+	}
+
+	user, err := findOrCreateUserFromAuth0(userInfo.Sub, userInfo.Email, userInfo.Name)
+	if err != nil {
+		zap.L().Error("Failed to create/find user", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "user_creation_failed"})
+	}
+
+	return c.JSON(fiber.Map{
+		"access_token": tokenResp.AccessToken,
+		"token_type":   tokenResp.TokenType,
+		"expires_in":   tokenResp.ExpiresIn,
+		"user": fiber.Map{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+		},
+	})
+}
+
 func RefreshTokenHandler(c *fiber.Ctx) error {
 	type RefreshRequest struct {
 		RefreshToken string `json:"refresh_token"`
@@ -191,6 +237,20 @@ func exchangeCodeForToken(cfg *config.Config, code string) (*Auth0TokenResponse,
 		"client_secret": cfg.Auth0ClientSecret,
 		"code":          code,
 		"redirect_uri":  cfg.Auth0RedirectURI,
+	}
+
+	return makeAuth0TokenRequest(url, payload)
+}
+
+func exchangeCodeForTokenFrontend(cfg *config.Config, code string) (*Auth0TokenResponse, error) {
+	url := fmt.Sprintf("https://%s/oauth/token", cfg.Auth0Domain)
+
+	payload := map[string]interface{}{
+		"grant_type":    "authorization_code",
+		"client_id":     cfg.Auth0ClientID,
+		"client_secret": cfg.Auth0ClientSecret,
+		"code":          code,
+		"redirect_uri":  cfg.FrontendURL + "/auth/callback",
 	}
 
 	return makeAuth0TokenRequest(url, payload)
