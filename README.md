@@ -10,8 +10,6 @@
 
 **A high-performance Go backend API for intelligent task planning powered by Google's Gemini AI**
 
-[🚀 Live API](https://api.anurag-goel.com) • [📖 Documentation](#api-documentation) • [🔧 Setup](#installation) • [🧪 Try on Scalar](#try-the-api)
-
 </div>
 
 ---
@@ -177,8 +175,7 @@ smart-task-planner-be/
 │   │   └── models.go
 │   ├── 📁 handlers/         # HTTP request handlers
 │   │   ├── auth_handler.go
-│   │   ├── plan_handler.go
-│   │   └── test_handler.go
+│   │   └── plan_handler.go
 │   ├── 📁 logger/           # Logging configuration
 │   │   └── logger.go
 │   ├── 📁 middleware/       # HTTP middleware
@@ -189,6 +186,8 @@ smart-task-planner-be/
 │   │   ├── auth.go
 │   │   ├── health.go
 │   │   └── plan.go
+│   ├── 📁 server/           # Server configuration
+│   │   └── server.go
 │   ├── 📁 services/         # Business logic services
 │   │   └── gemini_service.go
 │   └── 📁 validation/       # Request validation
@@ -275,7 +274,7 @@ AUTH0_AUDIENCE=https://your-api-identifier
 AUTH0_ISSUER=https://your-domain.auth0.com/
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-AUTH0_MANAGEMENT_TOKEN=your_management_token
+
 AUTH0_REDIRECT_URI=http://localhost:8080/auth/callback
 
 # Google Gemini AI
@@ -322,35 +321,19 @@ TRUST_PROXY=false
 
 ## 🧪 Try the API
 
-### **🔗 Interactive API Documentation**
-
-**Try the live API using Scalar:**
-
-[![Try with Scalar](https://img.shields.io/badge/Try%20API-Scalar-blue?style=for-the-badge)](https://api.anurag-goel.com/scalar)
-
-**Or use the Scalar CLI:**
-
-```bash
-# Install Scalar CLI
-npm install -g @scalar/cli
-
-# Generate interactive docs
-scalar serve https://api.anurag-goel.com/openapi.json
-```
-
 ### **🚀 Quick Test**
 
 ```bash
 # Test health endpoint
-curl https://api.anurag-goel.com/health
+curl http://localhost:8080/health
 
 # Generate a plan (no auth required)
-curl -X POST https://api.anurag-goel.com/api/generate \
+curl -X POST http://localhost:8080/api/generate \
   -H "Content-Type: application/json" \
   -d '{"goal": "Learn React in 30 days", "title": "React Learning Plan"}'
 
 # Test streaming endpoint
-curl -X POST https://api.anurag-goel.com/api/generate/stream \
+curl -X POST http://localhost:8080/api/generate/stream \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{"goal": "Build a mobile app", "title": "Mobile App Development"}'
@@ -369,6 +352,7 @@ curl -X POST https://api.anurag-goel.com/api/generate/stream \
 | `POST` | `/api/generate/stream` | Generate plan (streaming) | ❌ |
 | `GET` | `/auth/login` | Get OAuth login URL | ❌ |
 | `GET` | `/auth/callback` | OAuth callback handler | ❌ |
+| `POST` | `/auth/exchange` | Exchange Auth0 code for JWT | ❌ |
 | `POST` | `/auth/refresh` | Refresh JWT token | ❌ |
 | `GET` | `/auth/logout` | Get logout URL | ❌ |
 
@@ -495,7 +479,7 @@ fetch('/api/history', {
 
 **Request:**
 ```bash
-curl -X POST https://api.anurag-goel.com/api/generate \
+curl -X POST http://localhost:8080/api/generate \
   -H "Content-Type: application/json" \
   -d '{
     "goal": "Learn machine learning in 60 days",
@@ -542,7 +526,7 @@ curl -X POST https://api.anurag-goel.com/api/generate \
 
 **Request:**
 ```bash
-curl -X POST https://api.anurag-goel.com/api/generate \
+curl -X POST http://localhost:8080/api/generate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -d '{
@@ -601,7 +585,7 @@ curl -X POST https://api.anurag-goel.com/api/generate \
 **Request:**
 ```bash
 curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  https://api.anurag-goel.com/api/history
+  http://localhost:8080/api/history
 ```
 
 **Response:**

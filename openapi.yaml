@@ -7,7 +7,7 @@ info:
     Generate intelligent task plans for any goal using advanced AI. 
     Supports both anonymous and authenticated usage with plan persistence.
 
-    ## Features
+    Features
     - 🤖 AI-powered plan generation with Google Gemini 2.5 Flash Lite
     - 🔓 Anonymous plan generation (no signup required)
     - 🔐 Authenticated plan saving and history
