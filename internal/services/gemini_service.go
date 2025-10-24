@@ -31,7 +31,7 @@ func GeneratePlan(ctx context.Context, goal string) ([]Task, error) {
 			{
 				"parts": []map[string]any{
 					{
-						"text": fmt.Sprintf(`You are an expert task planner. Create a detailed plan for the following goal: "%s"
+						"text": fmt.Sprintf(`Break down this goal into actionable tasks with suggested deadlines and dependencies.: "%s"
 
 Return ONLY a valid JSON array of tasks. Each task must have exactly these fields:
 - "task": string (description of the task)
